@@ -1,0 +1,116 @@
+#+title: Statistics code snippets
+#+date: 2023
+#+autho: Stefan Rohrbacher
+#+auto_tangle:nil
+#+options: toc:nil
+* TOC
+:PROPERTIES:
+:TOC:      :include all :ignore (this)
+:END:
+:CONTENTS:
+- [[#imports][Imports]]
+- [[#variable-types][Variable types]]
+- [[#test-types][Test types]]
+  - [[#cause-effect-relation-regression][Cause effect relation: regression]]
+  - [[#pairwise-comparison-t-test][pairwise comparison: t-test]]
+    - [[#one-sample-t-test][one sample t-test]]
+    - [[#two-sample-t-test][two sample t-test]]
+:END:
+
+* Imports
+Import all the things.
+#+begin_src R
+library(reshape2)
+library(ISwR)
+library(tidyverse)
+library(survival)
+library(survminer)
+library(RTCGA)
+library(ggplot2)
+library(leaps)
+library(car)
+library(olsrr)
+library(gvlma)
+#+end_src
+
+* Variable types
+- categorical/nominal (groups with no order):
+  - eye color
+  - gender
+  - species
+- ordinal (groups with order):
+  - level of education
+  - level of agreement
+  - income level
+- interval (groups with ordering and equal spacing):
+  - temperature (°C, °F)
+  - standardized tests (IQ, SAT)
+- ratio/integer/discrete (groups with ordering, equal spacing and a natural 0):
+  - speed of a car
+  - number of apples
+  - height/weight/length
+
+* Test types
+** Cause effect relation: regression
+#+begin_src R
+ggplot(thuesen,aes(x=blood.glucose, y=short.velocity))+
+  geom_point()+
+  geom_smooth(method='lm', formula = y~x)
+
+lm.velo<-lm(data=thuesen, short.velocity~blood.glucose)
+summary(lm.velo)
+fitted(lm.velo)
+residuals(lm.velo)
+plot(lm.velo)
+predict(lm.velo,newdata=data.frame(blood.glucose=100))
+#+end_src
+The first plot shows the Residuals vs Fitted.
+This allows to look for non linear patterns.You should see more or less equally distributed points without any pattern around a red horizontal line. Outliers are numbered.
+
+The second plot can be used whether the residuals are normally distributed.
+
+The third plot allows to check for the homoscedasiticity assumption. Again we should expect a horizontal red line and point equally spread around without any pattern.
+
+The forth graph shows which points have a strong impact on the shape of the regression line.
+Points with labels are considered outliers (1, 13, 20). But only points "outside" Cook's distance also have a big influence on the regression line.
+prerequisites for linear regression test:
+ 1. metric variables
+ 2. goodness of fit test / chi^2 test was successful
+ 3. visual inspection with =plot(lm.velo)=
+    - residuals vs fitted: ideally horizontal red line and equally distributed dots around the line compares values of model vs errors if errors have a pattern the pattern should be part of model instead of a error R marks suspicious errors with a number
+    - normal qq: errors should follow normal distribution errors should follow line in plot
+    - scale location: homogeneity of variance variance is not depended on where a measurement is taken bad if: small value -> small deviation, large value -> large deviation good if: dots seemingly random, line mostly horizontal if bad: check data, in extreme cases exclude obviously wrong data but: any modification to done to the dataset must be documented and justified
+    - residuals vs leverage: shows outliers and influence of datapoints on model points outside cooks distance: outlier with strong influence
+
+** pairwise comparison: t-test
+- Data is independent
+- Data is (approximately) normally distributed
+- Data has a similar amount of variance within each group being compared (a.k.a. homogeneity of variance)
+*** one sample t-test
+Compare group with standard value.
+#+begin_src R
+# check for normal distribution
+hist(df$daily_intake)
+t.test(df_di$daily_intake, mu=7725)
+# if data does NOT follow normal distribution
+wilcox.test(daily_intake, mu=7725)
+#+end_src
+
+*** two sample t-test
+Compare groups from different populations (species, cities, ...)
+#+begin_src R
+# first check the variance of the groups
+var.test(expend~stature)
+# p-value < 0.05: variance differs and a welch test is needed
+# two sample t-test:
+t.test(expend~stature, var.equal=TRUE)
+# welch two sample t-test:
+t.test(expend~stature, var.equal=FALSE)
+
+# check for normal distribution
+qqnorm(expend)
+qqline(expend)
+# if data does NOT follow normal distribution:
+wilcox.test(expend~stature)
+#+end_src
+https://www.scribbr.com/statistics/one-way-anova/
